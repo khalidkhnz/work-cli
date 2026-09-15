@@ -6,6 +6,7 @@ Ticket → branch → PR → comment → doc, driven by an agent, across several
 
 - **[Installation Guide](docs/INSTALL.md)** — Setup for CLI, Claude Code, and OpenCode
 - **[Command Reference](docs/COMMANDS.md)** — All commands and flags
+- **[Jira API Reference](docs/JIRA-API.md)** — ADF format, all Jira operations, error handling
 
 Five layers, each doing the job it is actually suited to:
 

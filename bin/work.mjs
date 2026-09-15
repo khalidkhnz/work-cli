@@ -165,12 +165,16 @@ ${c.b("Tickets")}   ${c.dim(`trackers: ${trackerNames().join(", ")}`)}
   work start <KEY> [--base BR]     Branch for a ticket, and set the git identity
   work branch <KEY>                Print the branch name a ticket would get
   work comment [KEY] --body "..."  Post a comment (also --file, --stdin)
+  work edit-comment [KEY] --id <id> --body "..."  Edit an existing comment
+  work delete-comment [KEY] --id <id> --yes       Delete a comment (requires --yes)
+  work comments [KEY]              List all comments with IDs
   work move [KEY] <status>         Move the ticket
   work transitions [KEY]           What it can move to from here
   work worklog [KEY] <time>        Log time, e.g. work worklog 2h
   work create <project> --type T   Create a ticket (--summary, --description, --priority)
   work assign [KEY] <user>         Assign ticket to user (email, name, or accountId)
   work update [KEY] --summary ".." Update ticket fields (--labels, --priority, --description)
+  work delete-issue [KEY] --yes    Delete an issue (requires --yes, DESTRUCTIVE)
   work link-ticket KEY1 KEY2       Link two tickets (--type "blocks|relates to|...")
 
 ${c.b("Discovery")}
@@ -1115,6 +1119,143 @@ commands.comment = async () => {
   emit({ key, ...res }, (o) =>
     out(c.g(`✓ Commented on ${key}`) + `\n  ${c.dim(o.url ?? "")}`),
   );
+};
+
+commands["edit-comment"] = async () => {
+  const cfg = repo();
+  const key = resolveKey(cfg, positional[1]);
+  const commentId = flag("id") ?? positional[2];
+  if (!commentId) {
+    throw new Error(
+      'Usage: work edit-comment [KEY] --id <commentId> --body "..."\n' +
+        '       work edit-comment [KEY] <commentId> --body "..."\n\n' +
+        "Get comment IDs with: work ticket [KEY] --json | jq '.comments[].id'",
+    );
+  }
+  const body = bodyFromFlags("comment body");
+  const res = await getTracker(cfg).updateComment(cfg, key, commentId, body);
+  emit({ key, commentId, ...res }, (o) =>
+    out(
+      c.g(`✓ Updated comment ${commentId} on ${key}`) +
+        `\n  ${c.dim(o.url ?? "")}`,
+    ),
+  );
+};
+
+commands["delete-comment"] = async () => {
+  const cfg = repo();
+  const key = resolveKey(cfg, positional[1]);
+  const commentId = flag("id") ?? positional[2];
+  if (!commentId) {
+    throw new Error(
+      "Usage: work delete-comment [KEY] --id <commentId>\n" +
+        "       work delete-comment [KEY] <commentId>\n\n" +
+        "Get comment IDs with: work ticket [KEY] --json | jq '.comments[].id'",
+    );
+  }
+
+  // Show warning unless --yes is passed
+  if (!flags.yes) {
+    out(
+      c.r("\n⚠️  WARNING: This will permanently delete comment " + commentId),
+    );
+    out(c.y("This action cannot be undone.\n"));
+    out(`  ${c.dim("ticket")}     ${key}`);
+    out(`  ${c.dim("comment")}    ${commentId}\n`);
+    out(`To proceed, re-run with ${c.b("--yes")}:`);
+    out(c.dim(`  work delete-comment ${key} ${commentId} --yes\n`));
+    return;
+  }
+
+  await getTracker(cfg).deleteComment(cfg, key, commentId);
+  emit({ key, commentId, deleted: true }, () =>
+    out(c.g(`✓ Deleted comment ${commentId} from ${key}`)),
+  );
+};
+
+commands.comments = async () => {
+  const cfg = repo();
+  const key = resolveKey(cfg, positional[1]);
+  const res = await getTracker(cfg).getComments(cfg, key, {
+    limit: Number(flags.limit) || 50,
+  });
+  emit({ key, ...res }, () => {
+    if (!res.comments.length) return out(c.y(`\nNo comments on ${key}.\n`));
+    out(
+      `\n${c.b(`${res.comments.length} comment(s)`)} on ${key} ${c.dim(`(total: ${res.total})`)}\n`,
+    );
+    for (const cm of res.comments) {
+      out(`  ${c.c("ID:")} ${cm.id}`);
+      out(
+        `  ${c.dim("author:")} ${cm.author ?? "unknown"}  ${c.dim(cm.created ? new Date(cm.created).toLocaleString() : "")}`,
+      );
+      if (cm.updated && cm.updated !== cm.created) {
+        out(`  ${c.dim("edited:")} ${new Date(cm.updated).toLocaleString()}`);
+      }
+      out(
+        `  ${cm.body
+          .split("\n")
+          .map((l) => "  " + l)
+          .join("\n")}`,
+      );
+      out("");
+    }
+  });
+};
+
+commands["delete-issue"] = async () => {
+  const cfg = repo();
+  const key = resolveKey(cfg, positional[1]);
+
+  // Always require explicit confirmation for issue deletion
+  if (!flags.yes) {
+    out(c.r("\n⚠️  WARNING: This will permanently delete issue " + c.b(key)));
+    out(
+      c.r(
+        "This action cannot be undone. All comments, attachments, and history will be lost.\n",
+      ),
+    );
+
+    // Fetch and show issue details
+    try {
+      const t = await getTracker(cfg).getIssue(cfg, key);
+      out(`  ${c.dim("summary")}      ${t.summary}`);
+      out(`  ${c.dim("status")}       ${t.status}`);
+      out(`  ${c.dim("type")}         ${t.type}`);
+      if (t.subtasks?.length) {
+        out(
+          c.y(
+            `  ${c.dim("subtasks")}     ${t.subtasks.length} (will ${flags["delete-subtasks"] ? "also be deleted" : "become orphaned"})`,
+          ),
+        );
+      }
+      if (t.comments?.length) {
+        out(`  ${c.dim("comments")}     ${t.comments.length}`);
+      }
+      if (t.attachments?.length) {
+        out(`  ${c.dim("attachments")}  ${t.attachments.length}`);
+      }
+    } catch {
+      // Couldn't fetch details, proceed with warning anyway
+    }
+
+    out(`\nTo proceed, re-run with ${c.b("--yes")}:`);
+    out(c.dim(`  work delete-issue ${key} --yes`));
+    if (flags["delete-subtasks"]) {
+      out(
+        c.r(
+          `\n  --delete-subtasks is set: subtasks will also be permanently deleted.`,
+        ),
+      );
+    }
+    out("");
+    return;
+  }
+
+  await getTracker(cfg).deleteIssue(cfg, key, {
+    deleteSubtasks: Boolean(flags["delete-subtasks"]),
+  });
+  emit({ key, deleted: true }, () => out(c.g(`✓ Deleted issue ${key}`)));
 };
 
 commands.transitions = async () => {

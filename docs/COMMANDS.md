@@ -13,6 +13,25 @@ Quick reference for all `work` CLI commands.
 | `work comment <KEY> --body "..."` | Post comment to ticket                             |
 | `work move <KEY> "Status"`        | Transition ticket status                           |
 
+## Comment Management
+
+| Command                                          | Description                         |
+| ------------------------------------------------ | ----------------------------------- |
+| `work comment <KEY> --body "..."`                | Add a new comment                   |
+| `work comments <KEY>`                            | List all comments with IDs          |
+| `work edit-comment <KEY> --id <id> --body "..."` | Edit an existing comment            |
+| `work delete-comment <KEY> --id <id> --yes`      | Delete a comment (requires `--yes`) |
+
+## Issue Management
+
+| Command                                          | Description                        |
+| ------------------------------------------------ | ---------------------------------- |
+| `work create <project> --type T --summary "..."` | Create a new issue                 |
+| `work update <KEY> --summary "..."`              | Update issue fields                |
+| `work assign <KEY> <user>`                       | Assign issue to user               |
+| `work delete-issue <KEY> --yes`                  | Delete an issue (requires `--yes`) |
+| `work link-ticket KEY1 KEY2 --type "blocks"`     | Link two issues                    |
+
 ## Documentation
 
 | Command                                        | Description              |
@@ -57,12 +76,14 @@ Quick reference for all `work` CLI commands.
 
 ## Flags
 
-| Flag            | Commands    | Effect                               |
-| --------------- | ----------- | ------------------------------------ |
-| `--yes`         | `pr`, `doc` | Execute without preview confirmation |
-| `--body "..."`  | `comment`   | Inline comment body                  |
-| `--file <path>` | `doc`       | Use custom markdown file             |
-| `--title "..."` | `doc`       | Override page title                  |
+| Flag                | Commands                         | Effect                               |
+| ------------------- | -------------------------------- | ------------------------------------ |
+| `--yes`             | `pr`, `doc`, `delete-*`          | Execute without preview confirmation |
+| `--body "..."`      | `comment`, `edit-comment`        | Inline comment body                  |
+| `--id <id>`         | `edit-comment`, `delete-comment` | Comment ID to operate on             |
+| `--file <path>`     | `doc`, `comment`                 | Use markdown file as body            |
+| `--title "..."`     | `doc`                            | Override page title                  |
+| `--delete-subtasks` | `delete-issue`                   | Also delete subtasks                 |
 
 ## Examples
 
@@ -75,6 +96,16 @@ work pr-body STR-1234          # Draft PR description
 work pr STR-1234 --yes         # Open PR
 work move STR-1234 "In Review"
 work comment STR-1234 --body "Ready for review. Changes: ..."
+
+# Comment management
+work comments STR-1234                          # List all comments with IDs
+work edit-comment STR-1234 --id 12345 --body "Updated info"
+work delete-comment STR-1234 --id 12345 --yes   # Requires --yes
+
+# Issue management
+work create STR --type Task --summary "New feature"
+work update STR-1234 --labels "backend,urgent"
+work delete-issue STR-1234 --yes                # Requires --yes (DESTRUCTIVE)
 
 # Check what you're working on across all repos
 work repos ~/code

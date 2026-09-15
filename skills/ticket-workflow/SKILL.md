@@ -38,6 +38,47 @@ work doc api-contract <KEY> --yes    when the change has an API surface
 
 The commands are tracker-agnostic. `work ticket`, `work move`, `work comment` behave the same whether the repo is on Jira or ClickUp — the adapter is chosen from config, so never reach for a vendor API directly.
 
+## Comment management
+
+Beyond adding comments, you can now edit and delete them:
+
+```
+work comment <KEY> --body "..."           add a new comment
+work comments <KEY>                       list all comments with their IDs
+work edit-comment <KEY> --id <id> --body  update an existing comment
+work delete-comment <KEY> --id <id> --yes delete a comment (requires --yes)
+```
+
+**Editing comments** is useful when you need to correct information or add updates without cluttering the ticket with new comments.
+
+**Deleting comments** requires explicit `--yes` confirmation because it's irreversible. The CLI will show a warning and require you to re-run with `--yes`. Use this sparingly — usually editing is better than deleting.
+
+## ADF (Atlassian Document Format)
+
+All Jira write operations (comments, descriptions, worklogs) now accept either:
+
+- **ADF objects** (preferred for full control over formatting)
+- **Markdown strings** (auto-converted to ADF)
+
+The `work` CLI handles the conversion automatically, but if you need advanced formatting (panels, @mentions, status lozenges), you can construct ADF directly using the helpers in `lib/markup.mjs`:
+
+```javascript
+import {
+  adfDoc,
+  adfHeading,
+  adfBulletList,
+  adfPanel,
+  adfMention,
+} from "./lib/markup.mjs";
+
+// Complex comment with formatting
+const body = adfDoc([
+  adfHeading(3, "PR Ready"),
+  adfBulletList(["All tests passing", "Documentation updated"]),
+  adfPanel("info", "Ready for review"),
+]);
+```
+
 ## Per-repo context: `.work.md`
 
 A repo root may hold `.work.md`: YAML frontmatter (account, tracker, key prefixes, forge, base branch) plus a markdown body describing the codebase. `work context` prints the body; `work init` scaffolds the file.
@@ -62,7 +103,7 @@ Its frontmatter overrides the account profile, which is what lets two repos sitt
 
 **Branches** — `work start` generates them: `<type>/<KEY>-<slug>`, where type is `feature`, `fix`, `chore`, or `spike` derived from the Jira issue type. Don't hand-roll branch names; the generated one is what the tooling looks for later when it needs to find the ticket key.
 
-**Commits** — subject is `<KEY> <imperative description>`. Body only when the *why* isn't visible in the diff. One logical change per commit.
+**Commits** — subject is `<KEY> <imperative description>`. Body only when the _why_ isn't visible in the diff. One logical change per commit.
 
 **Ask before committing or pushing.** This is a standing instruction from the user, with no expiry. Show the message, wait for a yes. Approval on one commit is not approval for the next.
 
