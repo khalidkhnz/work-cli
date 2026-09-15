@@ -1,0 +1,17 @@
+# Extended regexes (grep -E -i) for AI attribution that must never be published.
+# Kept in sync by hand with lib/scrub.mjs — change both together.
+#
+# These target ATTRIBUTION, not any mention of a tool. "add claude commands" is a
+# legitimate commit subject; "Co-Authored-By: Claude" never is.
+co-?authored-by:.*(claude|anthropic|copilot|cursor|codex|gemini|chatgpt|openai|devin)
+co-?authored-by:.*@(anthropic|openai)\.com
+claude-session:[[:space:]]*http
+generated[[:space:]]+with[[:space:]]+\[?[[:space:]]*(claude|chatgpt|copilot|cursor|gemini|codex)
+🤖[[:space:]]*generated
+(ai|llm)[-[:space:]]?(generated|authored|assisted|written|created)
+generated[[:space:]]+by[[:space:]]+(an?[[:space:]]+)?(ai|llm|claude|chatgpt|copilot|cursor|gemini)
+(written|created|authored|produced)[[:space:]]+(by|with)[[:space:]]+(claude|chatgpt|copilot|cursor|gemini|an?[[:space:]]+ai)
+with[[:space:]]+(the[[:space:]]+)?(help|assistance)[[:space:]]+of[[:space:]]+(claude|chatgpt|copilot|an?[[:space:]]+ai)
+via[[:space:]]+claude[[:space:]]+code
+(assisted|authored)-by:.*(claude|ai|gpt)
+noreply@anthropic\.com

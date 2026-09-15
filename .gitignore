@@ -1,0 +1,7 @@
+# Secrets live in ~/.claude/dev-workflow/, never here. This is belt and braces.
+*.env
+profiles/
+config.json
+.DS_Store
+node_modules/
+*.bak.*

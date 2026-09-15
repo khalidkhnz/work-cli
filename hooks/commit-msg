@@ -1,0 +1,64 @@
+#!/bin/bash
+# Global git commit-msg hook.
+#
+# The Claude Code hook covers commits made through an agent. This one covers
+# every other path into a commit — your own terminal, an IDE, another CLI tool,
+# a different agent entirely. Same rule, enforced one layer lower.
+#
+# Installed via `git config --global core.hooksPath`. Setting that globally
+# would normally shadow a repo's own .git/hooks/commit-msg, so this script
+# delegates to it at the end rather than replacing it. (Husky is unaffected
+# either way — it sets core.hooksPath locally, which wins over the global one.)
+
+set -uo pipefail
+
+MSG_FILE="$1"
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PATTERNS="$HOOK_DIR/attribution-patterns.txt"
+
+[ -f "$PATTERNS" ] || exit 0
+
+# Ignore comment lines — git's own template mentions plenty of things.
+payload="$(grep -v '^#' "$MSG_FILE" 2>/dev/null || true)"
+
+hit="$(printf '%s' "$payload" | grep -Eio -f <(grep -v '^#' "$PATTERNS" | grep -v '^[[:space:]]*$') 2>/dev/null | head -3)"
+
+if [ -n "$hit" ]; then
+  {
+    echo ""
+    echo "commit rejected — the message credits an AI tool:"
+    printf '  %s\n' "$hit"
+    echo ""
+    echo "Nothing published from this machine names an AI as author, co-author,"
+    echo "or assistant. Remove those lines and commit again."
+    echo ""
+    echo "To strip them automatically:  work scrub \"$MSG_FILE\" --write"
+    echo ""
+  } >&2
+  exit 1
+fi
+
+# Same standing rule as the agent-side guard: this domain never authors a commit.
+author_email="$(git config user.email 2>/dev/null || true)"
+if printf '%s' "$author_email" | grep -Eqi '@technotribes\.org$'; then
+  {
+    echo ""
+    echo "commit rejected — author email is $author_email"
+    echo "@technotribes.org must never appear as an author or committer."
+    echo ""
+    echo "Fix with:  work start <TICKET>    (sets identity from the account profile)"
+    echo "      or:  git config user.email <correct address>"
+    echo ""
+  } >&2
+  exit 1
+fi
+
+# Hand off to the repo's own hook, so pointing core.hooksPath here adds a check
+# rather than removing whatever the project already had.
+GIT_DIR_PATH="$(git rev-parse --git-common-dir 2>/dev/null || echo .git)"
+LOCAL_HOOK="$GIT_DIR_PATH/hooks/commit-msg"
+if [ -x "$LOCAL_HOOK" ]; then
+  exec "$LOCAL_HOOK" "$@"
+fi
+
+exit 0
