@@ -1,30 +1,37 @@
-# dev-workflow
+# work-cli
 
 Ticket → branch → PR → comment → doc, driven by an agent, across several client accounts with different emails, different trackers, different forges, and dozens of repos.
 
+## Documentation
+
+- **[Installation Guide](docs/INSTALL.md)** — Setup for CLI, Claude Code, and OpenCode
+- **[Command Reference](docs/COMMANDS.md)** — All commands and flags
+
 Five layers, each doing the job it is actually suited to:
 
-| Layer | What | Solves |
-|---|---|---|
-| **Credentials** | `work` CLI + per-account profiles, selected by directory | Multiple accounts under different emails |
-| **Repo** | `.work.md` per repo — config + context | Many repos per account, each with its own tracker, keys, and quirks |
-| **Adapters** | Tracker (Jira, ClickUp) and forge (Bitbucket, GitHub) behind one interface | Commands don't care which vendor a repo uses |
-| **Enforcement** | Claude Code hook + global git `commit-msg` hook | Nothing published ever credits an AI; right git identity per repo |
-| **Knowledge + triggers** | Auto-loading skills, slash commands | The loop itself |
+| Layer                    | What                                                                       | Solves                                                              |
+| ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Credentials**          | `work` CLI + per-account profiles, selected by directory                   | Multiple accounts under different emails                            |
+| **Repo**                 | `.work.md` per repo — config + context                                     | Many repos per account, each with its own tracker, keys, and quirks |
+| **Adapters**             | Tracker (Jira, ClickUp) and forge (Bitbucket, GitHub) behind one interface | Commands don't care which vendor a repo uses                        |
+| **Enforcement**          | Claude Code hook + global git `commit-msg` hook                            | Nothing published ever credits an AI; right git identity per repo   |
+| **Knowledge + triggers** | Auto-loading skills, slash commands                                        | The loop itself                                                     |
 
-## Install
+## Quick Install
 
 ```bash
-git clone <this repo> ~/Desktop/CODE/khalid/dev-workflow
-cd ~/Desktop/CODE/khalid/dev-workflow
+git clone https://github.com/khalidkhnz/work-cli.git ~/dev-workflow
+cd ~/dev-workflow
 ./install.sh
-work setup      # one account
+work setup      # create first account profile
 work doctor     # verify it
 ```
 
 `install.sh` symlinks rather than copies, so editing this repo takes effect immediately and a `git pull` updates every project at once. Re-running it is safe.
 
-Requires: node ≥ 18, jq, git. `gh` only if you use GitHub.
+Requires: Node.js ≥ 18, jq, git. `gh` CLI only if you use GitHub.
+
+See **[docs/INSTALL.md](docs/INSTALL.md)** for Claude Code and OpenCode integration.
 
 ## Why a CLI and not more MCP servers
 
@@ -63,14 +70,16 @@ An account has many repos, and they don't all agree. `.work.md` in a repo root c
 ```markdown
 ---
 profile: acme
-tracker: clickup          # jira | clickup
+tracker: clickup # jira | clickup
 project_keys: [ABC]
-forge: github             # omit to detect from origin
+forge: github # omit to detect from origin
 base_branch: develop
 ---
 
 # service-name
+
 ## Where the real docs are
+
 ## Layout / How to run / Gotchas
 ```
 
@@ -88,10 +97,10 @@ work repos ~/code  # every repo under a tree: branch, ticket, account, mismatche
 
 Commands are vendor-agnostic — `work ticket`, `work move`, `work comment` behave the same on Jira or ClickUp.
 
-| | Supported | Notes |
-|---|---|---|
-| Tracker | `jira`, `clickup` | ClickUp custom ids (`ABC-123`) need `CLICKUP_TEAM_ID` when the token sees several workspaces |
-| Forge | `bitbucket`, `github` | GitHub prefers `GITHUB_TOKEN`, falls back to `gh` |
+|         | Supported             | Notes                                                                                        |
+| ------- | --------------------- | -------------------------------------------------------------------------------------------- |
+| Tracker | `jira`, `clickup`     | ClickUp custom ids (`ABC-123`) need `CLICKUP_TEAM_ID` when the token sees several workspaces |
+| Forge   | `bitbucket`, `github` | GitHub prefers `GITHUB_TOKEN`, falls back to `gh`                                            |
 
 Adding Linear or GitLab is one file in `lib/trackers/` or `lib/forges/` plus a line in the dispatch map — no command changes. The interface each adapter must satisfy is documented at the top of `lib/trackers/index.mjs`.
 
@@ -120,7 +129,7 @@ Nothing published from this machine names an AI as author, co-author, or assista
 2. **PreToolUse hook** — inspects every `git`/`gh`/`work`/`curl` command before it runs and denies it if the payload carries attribution, with an explanation the agent can act on.
 3. **Global git `commit-msg` hook** — catches commits made outside any agent: your terminal, an IDE, a different tool.
 
-The patterns target *attribution*, not mentions. `STR-3350 add claude commands` commits fine; `Co-Authored-By: Claude` never does. Both cases are covered by tests.
+The patterns target _attribution_, not mentions. `STR-3350 add claude commands` commits fine; `Co-Authored-By: Claude` never does. Both cases are covered by tests.
 
 The commit-msg hook delegates to a repo's own `.git/hooks/commit-msg` when one exists, so pointing `core.hooksPath` here adds a check rather than removing what a project already had.
 
